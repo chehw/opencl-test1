@@ -6,6 +6,7 @@
 extern "C" {
 #endif
 
+#include <limits.h>
 #include <CL/cl.h>
 
 #define OPENCL_TEXT_BUFFER_SIZE (4096)

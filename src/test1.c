@@ -156,9 +156,6 @@ ssize_t load_file(const char * filename, char ** p_data)
 	return length;
 }
 
-
-
-
 /*******************************
  * run tests
 *******************************/
@@ -210,7 +207,6 @@ int run_test(int num_devices, cl_device_id * device_ids, opencl_context_t * cl)
 			
 		queues[i] = clCreateCommandQueue(ctx, device, queue_props, &ret);
 		check_error(ret);
-		
 	}
 	
 	// step 2. create buffers
@@ -239,7 +235,7 @@ int run_test(int num_devices, cl_device_id * device_ids, opencl_context_t * cl)
 	}
 	
 	// step 3. create program from source file
-	const char * kernels_file = "kernels.cl";
+	const char * kernels_file = "kernels/kernels.cl";
 	char * sources = NULL;
 	size_t length = load_file(kernels_file, &sources);
 	printf("length: %d\n", (int)length);
@@ -252,7 +248,6 @@ int run_test(int num_devices, cl_device_id * device_ids, opencl_context_t * cl)
 	
 	ret = clBuildProgram(program, num_devices, device_ids, NULL, NULL, NULL);
 	check_error(ret);
-	
 	
 	/* 
 	 * step 4. load kernels and set args
@@ -308,7 +303,6 @@ int run_test(int num_devices, cl_device_id * device_ids, opencl_context_t * cl)
 	clSetKernelArg(vec_sum, 1, sizeof(cl_mem), &buffers[3]);			// A
 	clSetKernelArg(vec_sum, 2, local_size * sizeof(float), NULL);		// __local size for reduction 
 	clSetKernelArg(vec_sum, 3, sizeof(cl_mem), &mem_results);			// result
-	
 	
 	// step 5. init inputs and outputs buffer on the host
 	float * buf_0 = calloc(array_lengths[0], sizeof(float));

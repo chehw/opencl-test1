@@ -1,3 +1,7 @@
+#
+*
+!*.*
+
 # Prerequisites
 *.d
 
@@ -50,3 +54,23 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+#
+*.bak
+*.log*
+!*.c
+!*.h
+!*.sh
+!Makefile
+!src
+!src/*.c
+!src/*.h
+!include
+!include/*.h
+!kernels
+!kernels/*.cl
+!.gitignore
+
+
+
+
