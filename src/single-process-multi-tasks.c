@@ -406,7 +406,10 @@ static void * process(void * user_data)
 		assert(0 == rc);
 		if(task->quit) break;
 		
+		pthread_rwlock_wrlock(&params->rw_mutex);
 		tasks_status[task->index] = 0;	// reset status
+		pthread_rwlock_unlock(&params->rw_mutex);
+		
 		for(int i = 0; i < num_functions; ++i) {
 			struct opencl_function * function = functions[i];
 			assert(function);
@@ -426,7 +429,9 @@ static void * process(void * user_data)
 		
 		// todo: add required synchronization for current task
 		// ...
+		pthread_rwlock_wrlock(&params->rw_mutex);
 		tasks_status[task->index] = 1;
+		pthread_rwlock_unlock(&params->rw_mutex);
 		
 		// tasks sync 
 		switch(task->index) {
