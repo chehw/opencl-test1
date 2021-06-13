@@ -34,31 +34,18 @@
 #include <stdarg.h>
 #include "opencl-kernel.h"
 
+
+#define check_error(ret) do { 			\
+		if(CL_SUCCESS == ret) break; 	\
+		fprintf(stderr, "[ERROR]: %s(%d)::%s(): (err_code=%d), %s\n", \
+			__FILE__, __LINE__, __FUNCTION__, 	\
+			ret, opencl_error_to_string(ret)); 	\
+		assert(CL_SUCCESS == ret);	\
+	}while(0)
+
 /* *
 struct opencl_program
-{
-	cl_program prog;
-	cl_context ctx;
-	
-	int build_status;
-	
-	size_t num_devices;
-	const cl_device_id * device_ids;
-
-	int (* load_sources)(struct opencl_program * program, size_t num_sources, const char ** sources, const size_t * lengths);
-	int (* load_binaries)(struct opencl_program * program, const size_t * lengths, const unsigned char ** binaries); 
-	int (* load_builtin_kernels)(struct opencl_program * program, const char * kernel_names); // kernel_names: A semi-colon separated list of built-in kernel names.
-	
-	int (* compile)(struct opencl_program * program, const char * options, 
-		size_t num_headers, const cl_program * headers, const char ** header_names);
-	int (* link)(struct opencl_program * program, const char * options, size_t num_input_programs, const cl_program * input_programs);
-	
-	// compile and link
-	int (* build)(struct opencl_program * program);
-};
 * */
-
-
 static int program_load_sources(struct opencl_program * program, size_t num_sources, const char ** sources, const size_t * lengths)
 {
 	assert(program && program->ctx);
@@ -118,6 +105,7 @@ static int program_load_binaries(struct opencl_program * program, const size_t *
 		}
 	}
 
+	
 	if(ret != CL_SUCCESS) {
 		fprintf(stderr, "[ERROR]::%s(%d)::%s(): %s\n", 
 			__FILE__, __LINE__, __FUNCTION__, 
@@ -320,15 +308,11 @@ void opencl_program_cleanup(struct opencl_program * program)
 
 /* *
 struct opencl_kernel
-{
-	cl_kernel _kernel;
-	size_t num_args;
-	size_t * sizes;
-	void ** args;
-};
 * */
 struct opencl_kernel * opencl_kernel_init(struct opencl_kernel * kernel, cl_program prog, const char * kernel_name)
 {
+	assert(prog && kernel_name);
+	
 	if(NULL == kernel) {
 		kernel = calloc(1, sizeof(*kernel));
 		assert(kernel);
@@ -339,12 +323,10 @@ struct opencl_kernel * opencl_kernel_init(struct opencl_kernel * kernel, cl_prog
 	
 	cl_int ret = 0;
 	kernel->_kernel = clCreateKernel(prog, kernel_name, &ret);
-	if(ret != CL_SUCCESS) {
-		fprintf(stderr, "[ERROR]::%s(%d)::%s(): %s\n", 
-			__FILE__, __LINE__, __FUNCTION__, 
-			opencl_error_to_string(ret));
-	}
+	check_error(ret);
 	assert(ret == CL_SUCCESS);
+	
+	strncpy(kernel->name, kernel_name, sizeof(kernel->name));
 	return kernel;
 }
 
@@ -385,22 +367,6 @@ int opencl_kernel_set_args(struct opencl_kernel * kernel, size_t num_args, ... /
 
 /* *
 struct opencl_function
-{
-	struct opencl_kernel kernel[1];
-	
-	size_t work_dim;
-	size_t * global_offsets;
-	size_t * global_sizes;	// ==> cuda::{grid.x, grid.y, grid.z} 
-	size_t * local_sizes:	// ==> cuda::{block.x, block.y, block.z}
-	
-	cl_command_queue queue;
-	cl_event event;
-	
-	int (* set_args)(struct opencl_function * function, size_t num_args, ...);
-	int (* set_dims)(struct opencl_function * function, size_t work_dim, const size_t * global_offsets, const size_t * global_sizes, const size_t * local_sizes);
-	int (* set_params)(struct opencl_function * function, size_t num_params, void ** params_list);
-	int (* execute)(struct opencl_function * function, size_t num_waiting_events, const cl_event * waiting_events, cl_event * event);
-};
 * */
 static int function_set_dims(struct opencl_function * function, size_t work_dim, const size_t * global_offsets, const size_t * global_sizes, const size_t * local_sizes)
 {
@@ -449,4 +415,72 @@ void opencl_function_cleanup(struct opencl_function * function)
 		function->event = NULL;
 	}
 	return;
+}
+
+/* *
+struct opencl_buffer
+{
+	cl_mem gpu_data;
+	size_t size;
+	cl_mem_flags flags;
+	
+	void * cpu_data;
+	void (* on_cpu_data_free)(void *);
+	
+	const opencl_event_list * waiting_list;
+	cl_event event;
+	cl_int err_code;
+};
+* */
+
+struct opencl_buffer * opencl_buffer_init(struct opencl_buffer * buf, cl_context ctx, cl_mem_flags flags, size_t size, const void * cpu_data)
+{
+	if(NULL == buf) buf = calloc(1, sizeof(*buf));
+	else memset(buf, 0, sizeof(*buf));
+	assert(buf);
+	
+	assert(size > 0);
+	buf->gpu_data = clCreateBuffer(ctx, flags, size, (void *)cpu_data, &buf->err_code);
+	check_error(buf->err_code);
+	
+	return buf;
+}
+void opencl_buffer_cleanup(struct opencl_buffer * buf)
+{
+	if(NULL == buf) return;
+	
+	buf->waiting_list = NULL;
+	if(buf->event) {
+		clSetUserEventStatus(buf->event, CL_COMPLETE);
+		buf->event = NULL;
+	}
+	
+	if(buf->cpu_data && buf->on_free_cpu_data) {
+		buf->on_free_cpu_data(buf->cpu_data);
+	}
+	buf->cpu_data = NULL;
+	
+	if(buf->gpu_data) {
+		clReleaseMemObject(buf->gpu_data);
+		buf->gpu_data = NULL;
+	}
+	
+	buf->size = 0;
+	buf->flags = 0;
+	return;
+}
+
+void * opencl_buffer_enqueue_read(struct opencl_buffer * buf, cl_command_queue queue, cl_bool blocking, size_t offset, size_t length, const void * cpu_data)
+{
+	assert(buf);
+	assert(length > 0);
+	
+	
+	// todo:
+	return NULL;
+}
+int opencl_buffer_enqueue_write(struct opencl_buffer * buf, cl_command_queue queue, cl_bool blocking, size_t offset, size_t length)
+{
+	// todo:
+	return -1;
 }

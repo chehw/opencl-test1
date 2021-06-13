@@ -36,7 +36,8 @@ ssize_t opencl_program_get_build_log(struct opencl_program * program, cl_device_
 
 struct opencl_kernel
 {
-	cl_kernel _kernel;	
+	cl_kernel _kernel;
+	char name[100];
 	size_t num_args;
 	size_t * sizes;
 	void ** args;
@@ -63,6 +64,37 @@ struct opencl_function
 };
 struct opencl_function * opencl_function_init(struct opencl_function * function, const cl_program program, const char * kernel_name);
 void opencl_function_cleanup(struct opencl_function * function);
+
+struct opencl_event_list
+{
+	size_t size;
+	size_t length;
+	const cl_event * events;
+	
+	int (* add)(struct opencl_event_list * list, const cl_event * event);
+	const cl_event *  (* remove)(struct opencl_event_list * list, int index);
+};
+struct opencl_event_list * opencl_event_list_init(struct opencl_event_list * list, size_t size);
+void opencl_event_list_cleanup(struct opencl_event_list * list);
+
+struct opencl_buffer
+{
+	cl_mem gpu_data;
+	size_t size;
+	cl_mem_flags flags;
+	
+	void * cpu_data;
+	void (* on_free_cpu_data)(void *);
+	
+	const struct opencl_event_list * waiting_list;
+	cl_event event;
+	cl_int err_code;
+};
+
+struct opencl_buffer * opencl_buffer_init(struct opencl_buffer * buf, cl_context ctx, cl_mem_flags flags, size_t size, const void * cpu_data);
+void opencl_buffer_cleanup(struct opencl_buffer * buf);
+void * opencl_buffer_enqueue_read(struct opencl_buffer * buf, cl_command_queue queue, cl_bool blocking, size_t offset, size_t length, const void * cpu_data);
+int opencl_buffer_enqueue_write(struct opencl_buffer * buf, cl_command_queue queue, cl_bool blocking, size_t offset, size_t length);
 
 #ifdef __cplusplus
 }

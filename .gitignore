@@ -70,7 +70,12 @@ dkms.conf
 !kernels
 !kernels/*.cl
 !.gitignore
-
+!utils
+!utils/*.c
+!utils/*.h
+!base
+!base/*.c
+!base/*.h
 
 
 

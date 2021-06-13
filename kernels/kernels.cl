@@ -51,8 +51,7 @@ __kernel void vec_sum(__const int n, __global float * A, __local float * partial
 {
 	int global_index = get_global_id(0);
 	int local_index = get_local_id(0);
-	float sum = 0.0f;
-	
+
 	if(global_index < n) {
 		partials[local_index] = A[global_index];
 	}else {
